@@ -44,7 +44,7 @@ module bitsTop(bits) {
     // inchToMMMultiplier
     inchToMMMultiplier = 25.4;
 
-    function getBitLabel(idx) = str("#", bits[idx][0]);
+    function getBitLabel(idx) = str(bits[idx][0]);
 
     function getBitDiameter(idx) = (bits[idx][1] * inchToMMMultiplier) + bitDiameterMargin;
 
@@ -76,21 +76,23 @@ module bitsTop(bits) {
     // insetHeight is the height of the internal inset lip.
     insetHeight = 0.55 * inchToMMMultiplier;
 
-
-    
-        translate([0,0,insetHeight])
-        difference(){
+    translate([0, 0, insetHeight])
+    difference(){
+        union(){
             cube([
                 prismWidth,
                 prismDepth,
                 prismHeight,
             ]);
-            translate([bitsXOffset, bitsYOffset, 1 * prismHeight])
-            allBits();
-        };     
-        insetV2();
-        //insetV1();  
+            
+            translate([0,0, -insetHeight])
+            insetV2();
+        }
+        translate([bitsXOffset, bitsYOffset, 1 * prismHeight])
+        allBits();
+    };     
     
+    //insetV1();  
     
     bowlBottomFilePath = str(
         "assortment+box+master+set/02 assortment box master set/organizers/bowl ", 
@@ -164,10 +166,12 @@ module bitsTop(bits) {
         -1 * (getBitOverallLength(0) - getBitOverallLength(idx)) / 2 + baseYOffset:
         baseYOffset;
 
+    function zOffset(idx) = -getBitDiameter(idx)/2;
+
     // allBits is a module that contains all of the bits spaced 'betweenWidth' apart.
     module allBits(){
         for (idx = [ 0 : len(bits) - 1 ] ) {        
-            translate([xOffset(idx), yOffset(idx), 0])
+            translate([xOffset(idx), yOffset(idx), zOffset(idx)])
             rotate([90,0,0])
             bitProfile(
                 getBitLabel(idx), 
@@ -188,14 +192,19 @@ module bitsTop(bits) {
         overallLength
     ) {
         fontDepth = 1;
-        fontSize = 5.5;
+        fontSize = 7;
         distanceBetweenTextAndBottomOfBit = 2;
         
         rotate([-90,0,0])
-        translate([0,- (overallLength/2 + fontSize + distanceBetweenTextAndBottomOfBit),- fontDepth])
-        linear_extrude(fontDepth*2)
-        text(label, font = "Liberation Sans", size = fontSize, halign="center", valign="bottom");
+        translate([
+            0,
+            - (overallLength / 2 + fontSize + distanceBetweenTextAndBottomOfBit),
+            bodyDiameter / 2 -1,
+        ])
+        linear_extrude(fontDepth * 2)
+        text(label, font = "Liberation Sans", size = fontSize, halign="center", valign="bottom", spacing=1);
         
+        // main section
         cylinder(
             h = overallLength - (2 * drillLength),
             d = bodyDiameter,
@@ -203,8 +212,17 @@ module bitsTop(bits) {
             $fn = cylinderFn 
         );
         
+        cutMargin = 0.001;
+        // this "centers" the cube over the bit in both the x, and y axis, but not the z axis. On the Z axis its bottom
+        // should be at the midpoint of the bit profile. We do this instead of simply centering it, s.t. the cut profile
+        // can go higher than the maximum of the bit profile, but not lower than its midpoint.
+        translate([-bodyDiameter / 2, -bodyDiameter / 4, -overallLength / 2]) 
+        translate([0, bodyDiameter / 4, 0])
+        cube([bodyDiameter, bodyDiameter / 2 + cutMargin, overallLength], center=false); 
+        
         bitZOffset = (overallLength / 2) - drillLength;
         
+        // bottom section
         translate([0,0, bitZOffset])
         cylinder(
             h = drillLength,
@@ -213,6 +231,7 @@ module bitsTop(bits) {
             $fn = cylinderFn 
         );
         
+        // top section
         translate([0,0, -1 * bitZOffset - drillLength])
         cylinder(
             h = drillLength,
@@ -220,6 +239,19 @@ module bitsTop(bits) {
             r2 = bodyDiameter/2,
             $fn = cylinderFn 
         );
+
+        // here we implement the recess. This recess is used to allow the bit to be tipped into the recess so it can be
+        // picked up.
+        recessLength = overallLength / 4;
+        recessWidth = bodyDiameter;
+        recessDepth = bodyDiameter*1.2;
+
+        translate([
+            -recessWidth / 2,
+            (bodyDiameter / 2 /* this expression ensures that the measurement starts from the top */) - recessDepth, 
+            - overallLength / 2 + (overallLength - recessLength),
+        ])
+        cube([bodyDiameter, 100, recessLength], center = false);
     };
 }
 
